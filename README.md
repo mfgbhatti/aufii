@@ -16,4 +16,4 @@ Simply run aufii. As it is very basic, you are invited to add more functions and
 
 
 ## Credits
-- All credits goes to author (arl)[https://github.com/de-arl/auto-UEFI-entry].
+- All credits goes to author [arl](https://github.com/de-arl/auto-UEFI-entry).
