@@ -1,4 +1,4 @@
-# auto-UEFI
+# aufii
 **aufii** is a fast way to create UEFI-entries. An interactive tool to auto-generate UEFI-entries. **aufii** is interactive: while setting up your system you do not want to read man pages of commands you really seldomly need. **aufii** is a very simple bash script inviting you to add some more functionality and contribute to a tool which is made to JUST SAVE TIME.
 ## Usage
 Simply run **aufii**. As it is very basic.
