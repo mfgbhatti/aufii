@@ -61,14 +61,13 @@ y | Y | yes | Yes | YES)
 	done
 	DISK=$(echo "$EFI" | awk -F 'p' '{print $1}')
 	PART=$(echo "$EFI" | awk -F 'p' '{print $2}')
-	#AROT=$(lsblk | grep -w "/" | awk -F ' ' '{print $1}' | tail -c4)
 	AROT=$(df -hT | grep /$ | awk '{print $1}')
 	ROOT=$(blkid -s UUID | grep "$AROT" | awk -F '"' '{print $2}')
+	SWAP=$(blkid -s UUID| grep swap | awk -F '"' '{print $2}')
 	echo ""
-	read -r -p "Is your system using swap partition (y/n)? " SWAP
-	case $SWAP in
+	read -r -p "Is your system using swap partition (y/n)? " OPT
+	case $OPT in
 	y | Y | yes | Yes | YES)
-		SWAP=$(blkid -s UUID| grep swap | awk -F '"' '{print $2}')
 		SWAP_UUID=" resume=UUID=$SWAP"
 		;;
 	n | N | no | NO | No)
@@ -145,7 +144,7 @@ $FLBK
 $LINX
 exit 0
 EOF
-	chmod +x auto-gen
+	chmod +x "$CONFIG_FILE"
 	printf %s "Commands written to file $CONFIG_FILE"
 }
 
