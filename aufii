@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # aufii is a fast way to create UEFI-entries.
-# This script is hosted at https://github.com/mfgbhatti/auto-uefi. For new features,
+# This script is hosted at https://github.com/mfgbhatti/aufii. For new features,
 # improvements and bugs fill an issue in GitHub or make a pull request.
 # Pull Request are welcome!
 
@@ -131,7 +131,7 @@ write_exec() {
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-# This script is hosted at https://github.com/mfgbhatti/auto-uefi. For new features,
+# This script is hosted at https://github.com/mfgbhatti/aufii. For new features,
 # improvements and bugs fill an issue in GitHub or make a pull request.
 # Pull Request are welcome!
 ## For further information visit https://linux.die.net/man/8/efibootmgr. or
