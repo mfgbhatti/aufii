@@ -29,6 +29,14 @@ root_check() {
     fi
 }
 
+invalid_option() {
+    echo -ne "ERROR! Your selected option is invalid, retry... \n"
+}
+
+elements_present() {
+    for e in "${@:2}"; do [[ "$e" == "$1" ]] && break; done
+}
+
 PROMPT="Please select a valid option: "
 
 # Logo
@@ -51,19 +59,37 @@ echo -ne "No changes will be written to disk before confirmation.\n"
 read -r -p "Start now (y/n)? " CHOICE
 case $CHOICE in
 y | Y | yes | Yes | YES)
-	echo ""
-	echo -ne "Please specify EFI partition: \n"
-	PS3=$PROMPT
-	mapfile -t DISKLIST <<<"$(lsblk | grep 'part' | awk '{print "/dev/" substr($1,3)}')"
-	select DISK in "${DISKLIST[@]}"; do
-		EFI=$DISK
-		break
-	done
-	DISK=$(echo "$EFI" | awk -F 'p' '{print $1}')
-	PART=$(echo "$EFI" | awk -F 'p' '{print $2}')
-	AROT=$(df -hT | grep /$ | awk '{print $1}')
-	ROOT=$(blkid -s UUID | grep "$AROT" | awk -F '"' '{print $2}')
-	SWAP=$(blkid -s UUID| grep swap | awk -F '"' '{print $2}')
+	# check if the disk is ssd
+	if [[ "$(lsblk -n --output TYPE,ROTA | awk '$1=="disk"{print $2}')" -eq "0" ]]; then
+		SSD="1"
+	else
+		SSD="0"
+	fi
+	mapfile -t PARTITION_LIST <<<"$(lsblk | grep 'part' | awk '{print "/dev/" substr($1,3)}')"
+	# check if there are partitions on system
+	if [[ -z "${PARTITION_LIST[*]}" ]]; then
+		echo -ne "ERROR! No partition found!\n"
+		exit 0
+	else
+		echo ""
+		echo -ne "Please specify EFI or boot partition\n"
+		PS3=$PROMPT
+		select EFI in "${PARTITION_LIST[@]}"; do
+			if elements_present "$EFI" "${PARTITION_LIST[@]}"; then
+				if [[ "$SSD" -eq 1 ]]; then
+					DISK=$(echo "$EFI" | awk -F 'p' '{print $1}')
+					PART=$(echo "$EFI" | awk -F 'p' '{print $2}')
+				else
+					DISK=$(echo "$EFI" | awk -F '[0-9]*' '{print $1}')
+					PART=$(echo "$EFI" | awk -F '[a-z/]*' '{print $2}')
+				fi
+				AROT=$(df -hT | grep /$ | awk '{print $1}')
+				ROOT=$(blkid -s UUID | grep "$AROT" | awk -F '"' '{print $2}')
+				SWAP=$(blkid -s UUID| grep swap | awk -F '"' '{print $2}')
+			fi
+			break
+		done
+	fi
 	echo ""
 	read -r -p "Is your system using swap partition (y/n)? " OPT
 	case $OPT in
@@ -101,16 +127,50 @@ cd "$SCRIPT_DIR" || exit 0
 
 # Name
 echo ""
-read -r -p "Please label the boot entry (default is Arch-Linux): " STR
+read -r -p "Please label the boot entry (press enter Arch-Linux): " STR
 if [[ -z "$STR" ]]; then
 	STR="Arch-Linux"
 fi
 NAME=$STR
 
-# Compose commands
-FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
-LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN.img'"
-
+# ask for partition layouts
+echo -ne "Please select you partitioning layout\n"
+echo -ne "btrfs means you have root subvolume @ mounted at /\n"
+echo -ne "luks means you are using LUKS encrypted root partition\n"
+echo -ne "simple will cover everything else\n"
+PART_LAYOUT=("btrfs" "luks" "simple")
+PS3="$PROMPT"
+select OPT in "${PART_LAYOUT[@]}"; do
+	if elements_present "$OPT" "${PART_LAYOUT[@]}"; then
+		case "$OPT" in
+		# Compose commands
+		1)
+			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw rootflags=subvol=@ $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
+			LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw rootflags=subvol=@ $UCODE initrd=\initramfs-linux$KERN.img'"
+			;;
+		2)
+            echo -ne "Please enter the full path for your root volume\n"
+			echo -ne "It should be like /dev/mapper/luks etc\n"
+			echo -ne "Remember it should be full path as shown above\n"
+			echo -ne "if you have no idea leave it and check online before proceeding\n"
+			read -r -p "Enter the full path for your root volume: " LUKS_PATH
+			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'cryptdevice=UUID=$ROOT:luks:allow-discards root=$LUKS_PATH$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
+			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'cryptdevice=UUID=$ROOT:luks:allow-discards root=$LUKS_PATH$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN.img'"
+			;;
+		3)
+			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
+			LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN.img'"
+			;;
+		*)
+			invalid_option
+			;;
+		esac
+	else
+		invalid_option
+		break
+	fi
+	break
+done
 # Create bash file to execute commands
 write_exec() {
 	cat <<EOF > "$CONFIG_FILE"
@@ -164,6 +224,9 @@ ce) # write to file and execute it
 	;;
 a) # abort
 	printf %s "Aborted, no changes written to disk.\n"
+	;;
+*)
+	invalid_option
 	;;
 esac
 exit 0
