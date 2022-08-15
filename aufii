@@ -132,7 +132,7 @@ if [[ -z "$STR" ]]; then
 	STR="Arch-Linux"
 fi
 NAME=$STR
-
+clear
 # ask for partition layouts
 echo -ne "Please select you partitioning layout\n"
 echo -ne "btrfs means you have root subvolume @ mounted at /\n"
@@ -144,20 +144,21 @@ select OPT in "${PART_LAYOUT[@]}"; do
 	if elements_present "$OPT" "${PART_LAYOUT[@]}"; then
 		case "$OPT" in
 		# Compose commands
-		1)
+		btrfs)
 			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw rootflags=subvol=@ $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
 			LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw rootflags=subvol=@ $UCODE initrd=\initramfs-linux$KERN.img'"
 			;;
-		2)
+		luks)
             echo -ne "Please enter the full path for your root volume\n"
 			echo -ne "It should be like /dev/mapper/luks etc\n"
 			echo -ne "Remember it should be full path as shown above\n"
 			echo -ne "if you have no idea leave it and check online before proceeding\n"
 			read -r -p "Enter the full path for your root volume: " LUKS_PATH
+			echo " "
 			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'cryptdevice=UUID=$ROOT:luks:allow-discards root=$LUKS_PATH$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
-			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'cryptdevice=UUID=$ROOT:luks:allow-discards root=$LUKS_PATH$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN.img'"
+			LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'cryptdevice=UUID=$ROOT:luks:allow-discards root=$LUKS_PATH$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN.img'"
 			;;
-		3)
+		simple)
 			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
 			LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw $UCODE initrd=\initramfs-linux$KERN.img'"
 			;;
