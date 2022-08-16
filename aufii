@@ -138,7 +138,7 @@ echo -ne "Please select you partitioning layout\n"
 echo -ne "btrfs means you have root subvolume @ mounted at /\n"
 echo -ne "luks means you are using LUKS encrypted root partition\n"
 echo -ne "simple will cover everything else\n"
-PART_LAYOUT=("btrfs" "luks" "simple")
+PART_LAYOUT=("btrfs" "lvm" "luks" "simple")
 PS3="$PROMPT"
 select OPT in "${PART_LAYOUT[@]}"; do
 	if elements_present "$OPT" "${PART_LAYOUT[@]}"; then
@@ -147,6 +147,13 @@ select OPT in "${PART_LAYOUT[@]}"; do
 		btrfs)
 			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw rootflags=subvol=@ $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
 			LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'root=UUID=$ROOT$SWAP_UUID rw rootflags=subvol=@ $UCODE initrd=\initramfs-linux$KERN.img'"
+			;;
+		lvm)
+			echo -ne "if you have no idea leave it and check online before proceeding\n"
+			read -r -p "Please enter the name of the volume group: " LVM_VG
+			read -r -p "Please enter the name of the logical volume for root: " LVM_NAME
+			FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN --unicode 'root=/dev/$LVM_VG/$LVM_NAME rw $UCODE initrd=\initramfs-linux$KERN-fallback.img'"
+            LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN --unicode 'root=/dev/$LVM_VG/$LVM_NAME rw $UCODE initrd=\initramfs-linux$KERN.img'"
 			;;
 		luks)
             echo -ne "Please enter the full path for your root volume\n"
