@@ -104,9 +104,16 @@ ssd_check() {
 		list_partitions
 	fi
 }
-
-echo -ne "No changes will be written to disk before confirmation.\n"
+echo -ne "aufii is operating in presumption that your /boot exist and it contains your microde and one linux kernel.\n" 
+echo -ne "If you are using more than one kernel. Do Not use aufii, it is not configured to handle more than one kernel.\n" 
+echo -ne "The result will be different than expected. If you are not sure about anything, Do not use aufii.\n"
+echo -ne "Please Note: No Changes will be written to disk or Executed before your confirmation.\n"
 read -r -p "Start now (y/N)? " CHOICE
+# default to no
+if [[ -z "$CHOICE" ]]; then
+	CHOICE="n"
+fi
+
 case $CHOICE in
 y | Y | yes | Yes | YES)
 	mapfile -t DRIVES < <(lsblk -n --output TYPE,KNAME,SIZE | awk '$1=="disk"{print "/dev/"$2}')
@@ -127,7 +134,10 @@ y | Y | yes | Yes | YES)
 	fi
 
 	echo ""
-	read -r -p "Is your system using swap partition (y/n)? " OPT
+	read -r -p "Is your system using swap partition (y/N)? " OPT
+	if [[ -z "$OPT" ]]; then
+		OPT="N"
+	fi
 	case $OPT in
 	y | Y | yes | Yes | YES)
 		# SWAP_UUID="resume=UUID=$SWAP"
@@ -137,11 +147,17 @@ y | Y | yes | Yes | YES)
 		# SWAP_UUID=""
 		SWAP="0"
 		;;
+	*)
+		invalid_option
+		;;
 	esac
 	;;
 n | N | no | NO | No)
 	echo "Aborted by user"
 	exit 1
+	;;
+*)
+	invalid_option
 	;;
 esac
 
@@ -285,7 +301,7 @@ EOF
 # Write to disk and execute or abort
 echo ""
 echo -ne "Create executable bash file to edit or execute later,\n"
-echo -ne "create and execute user need to be root (sets UEFI boot entries)\n"
+echo -ne "create and execute, user need to be root (sets UEFI boot entries)\n"
 read -r -p "or abort this script (c/ce/a)? " CHOICE
 case "$CHOICE" in
 c) # write to file
