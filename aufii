@@ -9,10 +9,10 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/auto-gen-uefi"
 
 # Misc
+WIDTH="$(tput cols)"
 center() {
-	width="$(tput cols)"
 	padding="$(printf '%0.1s' \ {1..500})"
-	printf '%*.*s %s %*.*s\n' 0 "$(((width - 2 - ${#1}) / 2))" "$padding" "$1" 0 "$(((width - 1 - ${#1}) / 2))" "$padding"
+	printf '%*.*s %s %*.*s\n' 0 "$(((WIDTH - 2 - ${#1}) / 2))" "$padding" "$1" 0 "$(((WIDTH - 1 - ${#1}) / 2))" "$padding"
 }
 
 title() {
@@ -104,11 +104,16 @@ ssd_check() {
 		list_partitions
 	fi
 }
-echo -ne "aufii is operating in presumption that your /boot exist and it contains your microde and one linux kernel.\n" 
-echo -ne "If you are using more than one kernel. Do Not use aufii, it is not configured to handle more than one kernel.\n" 
-echo -ne "The result will be different than expected. If you are not sure about anything, Do not use aufii.\n"
-echo -ne "Please Note: No Changes will be written to disk or Executed before your confirmation.\n"
+WELCOME="\
+Aufii operates under the presumption that your /boot directory exists and contains your microcode and a single Linux kernel. If you are using multiple kernels, do NOT use Aufii, as it is not configured to handle more than one kernel.
+The results may differ from your expectations. If you are uncertain about anything, refrain from using Aufii.
+
+Please Note: No changes will be written to disk or executed without your confirmation.
+"
+fmt -w "$WIDTH" <<< "$WELCOME"
+
 read -r -p "Start now (y/N)? " CHOICE
+
 # default to no
 if [[ -z "$CHOICE" ]]; then
 	CHOICE="n"
@@ -170,7 +175,7 @@ for f in ./*; do
 	*lts*) KERN="-lts";;
 	*hard*) KERN="-hardened";;
 	*zen*) KERN="-zen";;
-	*) 
+	*)
 		KERN=""
 		;;
 	esac
@@ -188,10 +193,12 @@ NAME=$STR
 clear
 # ask for partition layouts
 logo
-echo -ne "Please select you partitioning layout\n"
-echo -ne "btrfs means you have root subvolume @ mounted at /\n"
-echo -ne "luks means you are using LUKS encrypted root partition\n"
-echo -ne "simple will cover everything else\n"
+printf "Please select your partitioning layout:\n"
+printf "  - 'btrfs' indicates that you have a Btrfs filesystem with the root subvolume mounted at '/'.\n"
+printf "  - 'luks' indicates that you are using an encrypted root partition with LUKS (Linux Unified Key Setup).\n"
+printf "  - 'simple' will cover any other partitioning schemes.\n"
+printf "\n"
+
 # variable for command (short)
 PRE_LINX="efibootmgr --disk $DISK --part $PART --create --label \"$NAME\" --loader /vmlinuz-linux$KERN"
 PRE_FLBK="efibootmgr --disk $DISK --part $PART --create --label \"$NAME-Fallback\" --loader /vmlinuz-linux$KERN"
@@ -215,8 +222,8 @@ select OPT in "${PART_LAYOUT[@]}"; do
 				FLBK="$PRE_FLBK $UNICODE rw rootflags=subvol=@ $POST_FLBK"
 			;;
 		lvm)
-			echo -ne "If you have no idea leave it and check online before proceeding\n"
-			echo -ne "You can use command like vgdisplay and lvdisplay to get."
+            printf "If you're unsure, it's best to leave this option and check online for guidance before proceeding.\n"
+            printf "You can use commands such as 'vgdisplay' and 'lvdisplay' to gather information about your volume groups and logical volumes, respectively.\n"
 			read -r -p "Please enter the name of the volume group: " LVM_VG
 			read -r -p "Please enter the name of the logical volume for root: " LVM_NAME
 			if [[ "$SWAP" == "1" ]]; then
@@ -228,10 +235,11 @@ select OPT in "${PART_LAYOUT[@]}"; do
 			FLBK="$PRE_FLBK $UNICODE rw $POST_FLBK"
 			;;
 		luks)
-            echo -ne "Please enter the full path for your root volume\n"
-			echo -ne "It should be like /dev/mapper/luks etc\n"
-			echo -ne "Remember it should be full path as shown above\n"
-			echo -ne "if you have no idea leave it and check online before proceeding\n"
+            printf "Please enter the full path for your root volume:\n"
+            printf "  - It should be in the format like '/dev/mapper/luks', indicating the path to your encrypted volume.\n"
+            printf "  - Ensure it's the complete path as shown above.\n"
+            printf "  - If you're unsure, it's advisable to leave this field blank and seek guidance online before proceeding.\n"
+
 			read -r -p "Enter the full path for your root volume: " LUKS_PATH
 			echo " "
 			if [[ "$SWAP" == "1" ]]; then
@@ -263,45 +271,40 @@ select OPT in "${PART_LAYOUT[@]}"; do
 done
 # Create bash file to execute commands
 write_exec() {
-	cat <<EOF > "$CONFIG_FILE"
-#!/usr/bin/env bash
-#
-# aufii is a fast way to create UEFI-entries.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-#
-# This script is hosted at https://github.com/mfgbhatti/aufii. For new features,
-# improvements and bugs fill an issue in GitHub or make a pull request.
-# Pull Request are welcome!
-## For further information visit https://linux.die.net/man/8/efibootmgr. or
-## https://wiki.archlinux.org/title/EFISTUB for detailed information.
-## See man efibootmgr
-#
-# Generated by aufii
-#
-$FLBK
-$LINX
-exit 0
+	CONFIG_MSG="$(cat <<EOF
+!/usr/bin/env bash
+
+aufii is a fast way to create UEFI-entries.
+This program is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+This script is hosted at https://github.com/mfgbhatti/aufii. For new features, improvements and bugs fill an issue in GitHub or make a pull request. Pull Request are welcome! For further information visit https://linux.die.net/man/8/efibootmgr. or https://wiki.archlinux.org/title/EFISTUB for detailed information.
+
+See man efibootmgr
+
+Generated by aufii
+
 EOF
+)"
+    fmt <<< "$CONFIG_MSG" > "$CONFIG_FILE"
+    sed -i '1s/^./#&/;1!s/^./# &/' "$CONFIG_FILE"
+    printf "%s\n" "$FLBK" >> "$CONFIG_FILE"
+    printf "%s\n"  "$LINX" >> "$CONFIG_FILE"
+
 	chmod +x "$CONFIG_FILE"
 	printf %s "Commands written to file $CONFIG_FILE"
 }
 
-# Write to disk and execute or abort
-echo ""
-echo -ne "Create executable bash file to edit or execute later,\n"
-echo -ne "create and execute, user need to be root (sets UEFI boot entries)\n"
+# Write to disk and execute or abort1s/^./#&/
+Q_ASK="\
+Create executable bash file to edit or execute later, create and execute, user need to be root (sets UEFI boot entries)
+"
+fmt -w "$WIDTH" <<<"$Q_ASK"
 read -r -p "or abort this script (c/ce/a)? " CHOICE
 case "$CHOICE" in
 c) # write to file
